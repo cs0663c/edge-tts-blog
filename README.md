@@ -46,8 +46,12 @@ services:
     container_name: edge-tts-blog
     ports:
       - "2868:8000"      # 宿主机 2868 → 容器内 8000
+    volumes:
+      - ./examples:/app/examples   # 示例文本目录映射到宿主机，可直接编辑
     restart: unless-stopped
 ```
+
+`./examples/` 目录映射到容器内 `/app/examples/`，里面放示例文本（如 `sample.txt`），你可以直接在宿主机上编辑、新增自己的文本文件。
 
 常用操作：
 
