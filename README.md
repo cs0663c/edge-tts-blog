@@ -133,7 +133,7 @@ docker buildx build \
 
 ## 文本格式
 
-每行一段，写法不区分中英文冒号：
+每行一段，写法不区分中英文冒号。完整示例见 [`examples/sample.txt`](examples/sample.txt)：
 
 ```
 主持人林：欢迎来到本期播客。
