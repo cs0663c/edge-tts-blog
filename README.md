@@ -25,25 +25,24 @@ uvicorn app.main:app --host 0.0.0.0 --port 2868 --reload
 
 ## Docker Compose 部署（推荐）
 
-项目根目录已附带 `docker-compose.yml`，一条命令即可启动：
+项目根目录已附带 `docker-compose.yml`，直接拉取 GHCR 上的预构建镜像，一条命令启动：
 
 ```bash
 # 克隆仓库后进入目录
 cd edge-tts-blog
 
-# 后台启动（首次会自动构建镜像）
-docker compose up -d --build
+# 后台启动（自动拉取 ghcr.io/cs0663c/edge-tts-blog:latest）
+docker compose up -d
 ```
 
 启动后访问 http://localhost:2868
 
-### docker-compose.yml 示例
+### docker-compose.yml（直接拉 GHCR 镜像，无需本地构建）
 
 ```yaml
 services:
   edge-tts-blog:
-    build: .
-    image: edge-tts-blog:latest
+    image: ghcr.io/cs0663c/edge-tts-blog:latest   # GHCR 预构建镜像（amd64+arm64）
     container_name: edge-tts-blog
     ports:
       - "2868:8000"      # 宿主机 2868 → 容器内 8000
@@ -53,13 +52,35 @@ services:
 常用操作：
 
 ```bash
-docker compose ps              # 查看运行状态
-docker compose logs -f         # 跟踪日志
-docker compose down            # 停止并移除容器
-docker compose up -d --build   # 改代码后重新构建并启动
+docker compose pull            # 拉取最新镜像
+docker compose up -d            # 启动
+docker compose ps               # 查看运行状态
+docker compose logs -f          # 跟踪日志
+docker compose down             # 停止并移除容器
 ```
 
-> 端口映射说明：`2868:8000` 左边是宿主机对外端口（你在浏览器访问的端口），右边是容器内 FastAPI 监听端口，保持 8000 即可不用改。想换对外端口只改冒号左边，例如 `"18080:8000"`。
+> 端口映射说明：`2868:8000` 左边是宿主机对外端口（你在浏览器访问的端口），右边是容器内 FastAPI 监听端口，保持 8000 即可。想换对外端口只改冒号左边，例如 `"18080:8000"`。
+
+### 从本地源码构建（改代码后用）
+
+如果想自己改代码并构建镜像，把 `image` 换成 `build: .`：
+
+```yaml
+services:
+  edge-tts-blog:
+    build: .
+    image: edge-tts-blog:latest
+    container_name: edge-tts-blog
+    ports:
+      - "2868:8000"
+    restart: unless-stopped
+```
+
+然后：
+
+```bash
+docker compose up -d --build
+```
 
 ## 直接用 Docker 命令部署
 

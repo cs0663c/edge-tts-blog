@@ -1,8 +1,7 @@
 services:
   edge-tts-blog:
-    build: .
-    image: edge-tts-blog:latest
+    image: ghcr.io/cs0663c/edge-tts-blog:latest
     container_name: edge-tts-blog
     ports:
-      - "2868:8000"
+      - "2868:8000"      # 宿主机 2868 → 容器内 8000
     restart: unless-stopped
