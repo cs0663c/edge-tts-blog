@@ -1,0 +1,8 @@
+services:
+  edge-tts-blog:
+    build: .
+    image: edge-tts-blog:latest
+    container_name: edge-tts-blog
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

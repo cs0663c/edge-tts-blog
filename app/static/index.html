@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Edge-TTS 多人博客配音</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #181b22;
+    --panel-2: #1f232c;
+    --border: #2a2f3a;
+    --text: #e6e8ec;
+    --muted: #8b93a3;
+    --accent: #4f8cff;
+    --accent-2: #6ee7b7;
+    --danger: #f87171;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    line-height: 1.5;
+  }
+  header {
+    padding: 18px 28px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 13px; margin-left: 12px; }
+  main {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+    padding: 18px 28px; max-width: 1400px; margin: 0 auto;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+  }
+  .card h2 {
+    margin: 0 0 10px; font-size: 14px; font-weight: 600;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
+  }
+  textarea {
+    width: 100%; min-height: 320px; background: var(--panel-2);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    padding: 12px; font-size: 14px; font-family: inherit; resize: vertical;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+    padding: 9px 16px; font-size: 14px; cursor: pointer; font-weight: 500;
+  }
+  button:hover { filter: brightness(1.1); }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 5px 10px; font-size: 12px; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .seg {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; margin-bottom: 10px;
+  }
+  .seg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .seg-speaker {
+    font-weight: 600; font-size: 13px; color: var(--accent-2);
+    background: rgba(110,231,183,.1); padding: 2px 8px; border-radius: 6px;
+  }
+  .seg-text { font-size: 14px; color: var(--text); margin: 6px 0; word-break: break-word; }
+  .seg-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  select {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 8px; font-size: 13px; max-width: 260px;
+  }
+  audio { height: 32px; margin-left: auto; }
+  .status { color: var(--muted); font-size: 13px; min-height: 18px; }
+  .status.err { color: var(--danger); }
+  .controls-bar {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    padding: 14px 28px; border-top: 1px solid var(--border);
+    position: sticky; bottom: 0; background: var(--bg);
+  }
+  label.inline { font-size: 13px; color: var(--muted); }
+  input[type=range] { width: 120px; }
+  .pill { font-size: 12px; color: var(--muted); }
+  #mergedAudio { display: block; width: 100%; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:baseline;">
+    <h1>Edge-TTS 多人博客配音</h1>
+    <span class="sub">粘贴「名字：内容」文本 → 逐段配音 → 导出合并 MP3</span>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>1. 粘贴博客文本</h2>
+    <textarea id="inputText" placeholder="名字A：大家好，欢迎收听本期节目。&#10;名字B：今天我们聊聊……&#10;名字A：嗯，这个话题很有意思。"></textarea>
+    <div class="row">
+      <button id="parseBtn">解析文本</button>
+      <button class="secondary" id="loadDemoBtn">填入示例</button>
+      <span class="status" id="parseStatus"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. 为每位说话人选择音色并试听</h2>
+    <div id="segList"><p class="status">解析后将在此显示分段。</p></div>
+  </section>
+</main>
+
+<div class="controls-bar">
+  <label class="inline">语速 <input type="range" id="rate" min="-50" max="50" value="0"><span id="rateVal">+0%</span></label>
+  <label class="inline">音调 <input type="range" id="pitch" min="-50" max="50" value="0"><span id="pitchVal">+0Hz</span></label>
+  <label class="inline">段间静音 <input type="range" id="gap" min="0" max="1000" step="50" value="250"><span id="gapVal">250ms</span></label>
+  <button id="narrateBtn">生成并下载合并 MP3</button>
+  <span class="status" id="narrateStatus"></span>
+  <audio id="mergedAudio" controls style="display:none"></audio>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let VOICES = [];
+let segments = [];          // {speaker, text, voice}
+let speakerVoiceMap = {};   // 记住每个说话人上次选的音色
+
+async function loadVoices() {
+  try {
+    const r = await fetch('/api/voices');
+    const data = await r.json();
+    VOICES = data.voices || [];
+  } catch (e) {
+    VOICES = [];
+  }
+}
+
+function voiceOptions(selectVoice) {
+  return VOICES.map(v => {
+    const sn = v.ShortName || v;
+    const loc = v.Locale || '';
+    const g = v.Gender || '';
+    const sel = sn === selectVoice ? 'selected' : '';
+    return `<option value="${sn}" ${sel}>${sn} (${loc} ${g})</option>`;
+  }).join('');
+}
+
+$('loadDemoBtn').onclick = () => {
+  $('inputText').value =
+`主持人林：欢迎来到本期播客，今天我们聊一聊独立开发。
+嘉宾陈：好的，这两年独立开发者确实越来越多。
+主持人林：对，工具链成熟了，一个人也能做出完整产品。
+嘉宾陈：不过维护成本和收入不稳定也是现实问题。
+主持人林：是的，所以我们今天请来了三位朋友聊聊他们的经历。`;
+};
+
+$('parseBtn').onclick = async () => {
+  const text = $('inputText').value.trim();
+  const st = $('parseStatus');
+  if (!text) { st.textContent = '请先粘贴文本'; st.className = 'status err'; return; }
+  st.textContent = '解析中…'; st.className = 'status';
+  try {
+    const r = await fetch('/api/parse', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text})});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || '解析失败');
+    segments = data.segments;
+    // 自动为每个说话人分配音色（沿用历史选择，否则轮换默认音色）
+    const fallback = ['zh-CN-XiaoxiaoNeural','zh-CN-YunxiNeural','zh-CN-XiaoyiNeural','zh-CN-YunyangNeural','zh-CN-XiaochenNeural','zh-CN-YunjianNeural'];
+    const seen = {};
+    segments.forEach((s, i) => {
+      if (speakerVoiceMap[s.speaker]) s.voice = speakerVoiceMap[s.speaker];
+      else {
+        if (!(s.speaker in seen)) {
+          seen[s.speaker] = fallback[Object.keys(seen).length % fallback.length];
+        }
+        s.voice = seen[s.speaker];
+        speakerVoiceMap[s.speaker] = s.voice;
+      }
+    });
+    renderSegments();
+    st.textContent = `共解析出 ${segments.length} 段。`; st.className = 'status';
+  } catch (e) {
+    st.textContent = e.message; st.className = 'status err';
+  }
+};
+
+function renderSegments() {
+  const list = $('segList');
+  if (!segments.length) { list.innerHTML = '<p class="status">无分段。</p>'; return; }
+  list.innerHTML = segments.map((s, i) => `
+    <div class="seg" data-i="${i}">
+      <div class="seg-head">
+        <span class="seg-speaker">${escapeHtml(s.speaker)}</span>
+        <select onchange="onVoiceChange(${i}, this.value)">${voiceOptions(s.voice)}</select>
+      </div>
+      <div class="seg-text">${escapeHtml(s.text)}</div>
+      <div class="seg-controls">
+        <button class="ghost" onclick="previewSeg(${i})">试听本段</button>
+        <span class="status seg-status" id="segStatus${i}"></span>
+        <audio id="segAudio${i}" controls style="display:none"></audio>
+      </div>
+    </div>`).join('');
+}
+
+function escapeHtml(t) {
+  const d = document.createElement('div'); d.textContent = t; return d.innerHTML;
+}
+
+window.onVoiceChange = (i, voice) => {
+  segments[i].voice = voice;
+  speakerVoiceMap[segments[i].speaker] = voice;
+};
+
+window.previewSeg = async (i) => {
+  const s = segments[i];
+  const st = $('segStatus'+i); const au = $('segAudio'+i);
+  st.textContent = '合成中…';
+  try {
+    const r = await fetch('/api/tts', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({text: s.text, voice: s.voice, rate: signedPct('rate'), pitch: signedPct('pitch')})});
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail||'合成失败'); }
+    const blob = await r.blob();
+    au.src = URL.createObjectURL(blob); au.style.display = 'block'; au.play();
+    st.textContent = '';
+  } catch (e) { st.textContent = e.message; st.className = 'status seg-status err'; }
+};
+
+function signedPct(id) {
+  const v = parseInt($(id).value, 10);
+  return (v >= 0 ? '+' : '') + v + (id === 'rate' ? '%' : 'Hz');
+}
+
+['rate','pitch'].forEach(id => {
+  $(id).oninput = () => {
+    const v = parseInt($(id).value, 10);
+    $(id+'Val').textContent = (v>=0?'+':'') + v + (id==='rate'?'%':'Hz');
+  };
+});
+$('gap').oninput = () => { $('gapVal').textContent = $('gap').value + 'ms'; };
+
+$('narrateBtn').onclick = async () => {
+  const btn = $('narrateBtn'); const st = $('narrateStatus'); const au = $('mergedAudio');
+  if (!segments.length) { st.textContent = '请先解析文本'; st.className = 'status err'; return; }
+  btn.disabled = true; st.textContent = '正在逐段合成，请稍候…'; st.className = 'status';
+  try {
+    const body = {
+      segments: segments.map(s => ({speaker: s.speaker, text: s.text, voice: s.voice, rate: signedPct('rate'), pitch: signedPct('pitch')})),
+      gap_ms: parseInt($('gap').value, 10),
+    };
+    const r = await fetch('/api/narrate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail||'合成失败'); }
+    const blob = await r.blob();
+    // 自动下载
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'narration.mp3'; a.click();
+    // 同时在页面里播放
+    au.src = url; au.style.display = 'block';
+    const warn = r.headers.get('X-Warnings');
+    st.textContent = warn ? `已导出（部分段失败：${warn}）` : '已生成并开始下载 narration.mp3';
+    st.className = 'status';
+  } catch (e) { st.textContent = e.message; st.className = 'status err'; }
+  finally { btn.disabled = false; }
+};
+
+loadVoices();
+</script>
+</body>
+</html>
