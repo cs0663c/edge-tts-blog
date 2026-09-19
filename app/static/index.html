@@ -197,6 +197,7 @@ function renderSegments() {
       <div class="seg-text">${escapeHtml(s.text)}</div>
       <div class="seg-controls">
         <button class="ghost" onclick="previewSeg(${i})">试听本段</button>
+        <button class="ghost" onclick="downloadSeg(${i})">下载本段</button>
         <span class="status seg-status" id="segStatus${i}"></span>
         <audio id="segAudio${i}" controls style="display:none"></audio>
       </div>
@@ -223,6 +224,26 @@ window.previewSeg = async (i) => {
     const blob = await r.blob();
     au.src = URL.createObjectURL(blob); au.style.display = 'block'; au.play();
     st.textContent = '';
+  } catch (e) { st.textContent = e.message; st.className = 'status seg-status err'; }
+};
+
+window.downloadSeg = async (i) => {
+  const s = segments[i];
+  const st = $('segStatus'+i);
+  st.textContent = '合成中…';
+  try {
+    const r = await fetch('/api/tts', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({text: s.text, voice: s.voice, rate: signedPct('rate'), pitch: signedPct('pitch')})});
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail||'合成失败'); }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `segment_${i+1}_${s.speaker}.mp3`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    st.textContent = '已下载';
+    setTimeout(() => { if (st.textContent === '已下载') st.textContent = ''; }, 3000);
   } catch (e) { st.textContent = e.message; st.className = 'status seg-status err'; }
 };
 
